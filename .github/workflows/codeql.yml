@@ -54,7 +54,7 @@ jobs:
       security-events: write # the SARIF upload in analyze@v4
       actions: read # required on private repositories only; harmless on public
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
