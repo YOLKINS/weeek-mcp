@@ -1,0 +1,154 @@
+name: release
+
+# Publishing this package used to be a ritual performed from a laptop: bump,
+# tag, remember to run coverage because `prepublishOnly` does not, `npm publish
+# --otp`. RETRO-18 filed the coverage half of that as a finding, and the answer
+# it proposed — "document «do not publish from a laptop without coverage»" — is
+# a gate enforced by memory. This workflow is the other answer: the steps move
+# out of human memory while the decision stays in human hands.
+#
+# MANUAL DISPATCH ONLY, and deliberately **not** on tag push. A tag is a label
+# on a commit, and labelling is not publishing: tags get cut early to mark a
+# candidate, get re-cut to fix a message, get pushed in a batch. Any of those
+# reaching the registry on its own is a release nobody decided to make.
+#
+# DISPATCH IT AGAINST THE TAG, not a branch. GitHub's "Run workflow" ref picker
+# accepts tags, and `gh workflow run release.yml --ref v1.0.0` does the same
+# from a terminal. Everything below then reads one fact — the ref that is
+# checked out — instead of an input that could disagree with it. Two
+# consequences worth knowing: `workflow_dispatch` reads this file *from the ref
+# you pick*, so a tag cut before this workflow existed cannot be released by it;
+# and a dispatch against a branch fails at the first guard rather than
+# publishing whatever `main` happens to hold.
+#
+# WHAT THIS WORKFLOW DOES NOT OWN: the version. A bump is one hand-authored
+# commit with the `vN.N.N` tag on it — the rule comes from ADR 0001 §6, but the
+# set of places has grown past what that rule lists, so the current set is here:
+# `package.json`, the `McpServer` version literal in `src/index.ts`, and both
+# version fields in `server.json` (the manifest's own and its npm package
+# entry). This job publishes what that commit already decided. Prose is not what
+# keeps the set honest, so do not trust this paragraph over the gates:
+# `version-cadence.test.ts` asserts `package.json` == the `src/index.ts` literal
+# byte-for-byte, `registry-manifest.test.ts` asserts both `server.json` fields
+# equal `package.json`, and the guard below refuses a tag that disagrees with
+# `package.json`. No Changesets, no semantic-release — both want to own the
+# version commit, and neither can be given it without taking the decision away
+# from the person making it.
+
+on:
+  workflow_dispatch:
+    # No inputs, on purpose. The one input a release workflow always grows is a
+    # dist-tag, and `next`-vs-`latest` is precisely the split ADR 0001 §6
+    # retired. `npm publish` below names no tag and therefore publishes to
+    # `latest`, which is the only dist-tag this package has.
+
+permissions:
+  contents: read
+  # What mints the provenance attestation. Provenance is the reason this
+  # workflow exists at all rather than being a convenience: it lets a consumer
+  # verify that the tarball on npm was built by this repository's CI from the
+  # commit shown here, which is a claim a hand-publish can never make.
+  id-token: write
+
+concurrency:
+  # Serialised and never cancelled — a publish interrupted mid-upload is the one
+  # outcome the registry cannot roll back for us.
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: publish to npm (node 20)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          # A version the `ci.yml` matrix covers, so the artifact is built by a
+          # toolchain the whole test suite has already run under.
+          node-version: "20.x"
+          cache: npm
+          cache-dependency-path: package-lock.json
+          # Writes the `.npmrc` line that reads `NODE_AUTH_TOKEN` at publish.
+          registry-url: "https://registry.npmjs.org"
+      - run: npm ci
+
+      # Both guards run before the chain rather than after it. A mistyped
+      # version should cost ten seconds, not a full typecheck-lint-test-coverage
+      # -build; and re-checking after the chain would only narrow a race that
+      # the `concurrency` group above already closes.
+      - name: Guard - the dispatched ref is a tag, and package.json matches it
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if [ "$REF_TYPE" != "tag" ]; then
+            echo "::error::dispatched against $REF_TYPE '$REF_NAME' - release runs on a tag ref only"
+            exit 1
+          fi
+          version="$(node -p "require('./package.json').version")"
+          if [ "$REF_NAME" != "v$version" ]; then
+            echo "::error::tag '$REF_NAME' does not match package.json version '$version' (expected tag 'v$version')"
+            exit 1
+          fi
+          echo "releasing $version from $REF_NAME"
+
+      - name: Guard - that version is not already on the registry
+        run: |
+          set -euo pipefail
+          name="$(node -p "require('./package.json').name")"
+          version="$(node -p "require('./package.json').version")"
+          # No `|| true` here: a failing `npm view` means the registry could not
+          # be read, and reading that as "not published yet" is the one wrong
+          # answer. It also means a never-published package fails this step -
+          # true of a first release, not true of this one, and loud either way.
+          published="$(npm view "$name" versions --json)"
+          # Answered as a word rather than an exit code, so the three outcomes
+          # stay three: published, not published, and `node` itself failing on
+          # a payload that would not parse. An exit-code test would fold the
+          # third into the first and tell the operator to bump a version that
+          # is in fact fine; here `set -e` fails the step with node's own error.
+          exists="$(PUBLISHED="$published" VERSION="$version" node -e '
+            const all = [].concat(JSON.parse(process.env.PUBLISHED));
+            process.stdout.write(all.includes(process.env.VERSION) ? "yes" : "no");
+          ')"
+          if [ "$exists" = "yes" ]; then
+            echo "::error::$name@$version is already published - a version on npm is permanent, so bump and re-tag"
+            exit 1
+          fi
+          echo "$name@$version is not on the registry yet"
+
+      # The full pre-merge chain from CLAUDE.md, coverage included. Coverage is
+      # here because it is the gate a laptop publish skipped: the per-glob V8
+      # ratchet in `vitest.config.ts` guards the whole of `src/**` and is
+      # exercised only when `--coverage` is passed.
+      - run: npm run typecheck
+      - run: npm run typecheck:tests
+      - run: npm run lint
+      - run: npm test
+      - run: npm run coverage
+      - run: npm run build
+      - name: Verify dist/index.js shebang and exec bit
+        run: |
+          test -x dist/index.js
+          head -n 1 dist/index.js | grep -q '^#!/usr/bin/env node$'
+
+      # `npm publish` runs `prepublishOnly`, so the chain above runs a second
+      # time inside this step. That duplication is kept: it costs a couple of
+      # minutes a few times a year, and it is what keeps the belt working if
+      # someone ever trims a step out of this workflow. The rebuild it performs
+      # is deterministic from the same tree, so the bits verified above are the
+      # bits that ship.
+      #
+      # No `--tag`: the default is `latest`, and naming it here is how a
+      # dist-tag becomes a parameter (see the `on:` block).
+      - name: Publish to npm with provenance
+        run: npm publish --provenance
+        env:
+          # An npm **automation** token. The maintainer account runs 2FA in
+          # auth-and-writes mode, where an ordinary publish token demands an OTP
+          # that no CI job can supply; automation tokens are the supported path.
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

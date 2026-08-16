@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "weeek": {
+      "command": "npx",
+      "args": ["-y", "weeek-mcp"],
+      "env": {
+        "LOG_LEVEL": "info",
+        "WEEEK_ACCESS_TOKEN": "YOUR_WEEEK_TOKEN_HERE",
+        "WEEEK_BASE_URL": "https://api.weeek.net/public/v1",
+        "WEEEK_TIMEOUT_MS": "30000",
+        "READ_ONLY": "false",
+        "ENABLED_TOOLS": "weeek_get_me,weeek_list_projects,weeek_list_tasks,weeek_get_task,weeek_list_boards,weeek_list_board_columns,weeek_complete_task",
+        "MAX_RESPONSE_CHARS": "65536"
+      }
+    }
+  }
+}

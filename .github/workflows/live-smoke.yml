@@ -1,0 +1,52 @@
+name: live-smoke
+
+# Fires on release tags only. The default `ci.yml` (mock-only) covers PRs
+# and pushes to `main`; this workflow is gated on a Weeek workspace token
+# (`secrets.WEEEK_TEST_TOKEN`) and exercises the real API. Tag-firing
+# keeps the secret out of fork-PR contexts entirely.
+#
+# When the secret is unset, `tests/integration/setup.ts` returns
+# `undefined` and every suite calls `describe.skip(...)` — the workflow
+# still runs green; it just does not exercise the live API.
+#
+# Since I8 (#49) this is also where the WRITE cycle runs: it creates a task in
+# the sandbox project, edits / moves / links / completes it and deletes it
+# again. That is precisely why it lives here and not in `ci.yml` — the main
+# matrix must stay mock-only, so no PR (least of all a fork's) can mutate a
+# workspace.
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: live-smoke-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  live:
+    name: live-integration (node 20)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - run: npm run test:integration
+        env:
+          WEEEK_INTEGRATION_TOKEN: ${{ secrets.WEEEK_TEST_TOKEN }}
+          # I8 (#49): the write-cycle suite's second gate. Without it the
+          # read probes still run and the write cycle skips — so a repo whose
+          # sandbox project has not been nominated degrades to the pre-I8
+          # coverage rather than mutating a workspace nobody chose.
+          WEEEK_INTEGRATION_PROJECT_ID: ${{ secrets.WEEEK_TEST_PROJECT_ID }}

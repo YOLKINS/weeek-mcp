@@ -1,0 +1,768 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Gate B — outputSchema freeze (I7.5, ADR 0003; widened to the writes in I8 #50) > every tool's outputSchema matches the locked baseline (fails on any change) 1`] = `
+{
+  "ping": {
+    "reply": {
+      "description": "'pong: <msg>'",
+      "type": "ZodString",
+    },
+  },
+  "weeek_complete_task": {
+    "assignees": {
+      "description": "UUIDs of every assignee on the task (matches weeek_list_members.id). Empty if the task is unassigned; includes userId on assigned tasks.",
+      "element": {
+        "type": "ZodString",
+      },
+      "type": "ZodArray",
+    },
+    "completed": {
+      "description": "Whether the task is completed",
+      "type": "ZodBoolean",
+    },
+    "description": {
+      "description": "Task description (nullable). May end with the marker '…[truncated]' if the response hit MAX_RESPONSE_CHARS — see the truncated field.",
+      "inner": {
+        "type": "ZodString",
+      },
+      "type": "ZodNullable",
+    },
+    "id": {
+      "checks": [
+        {
+          "kind": "int",
+          "value": undefined,
+        },
+      ],
+      "description": "Stable Weeek task identifier",
+      "type": "ZodNumber",
+    },
+    "priority": {
+      "description": "Priority code (commonly 0=Low, 1=Medium, 2=High, 3=Hold), or null when no priority is set. The range is not guaranteed by the API.",
+      "inner": {
+        "checks": [
+          {
+            "kind": "int",
+            "value": undefined,
+          },
+        ],
+        "type": "ZodNumber",
+      },
+      "type": "ZodNullable",
+    },
+    "projectId": {
+      "checks": [
+        {
+          "kind": "int",
+          "value": undefined,
+        },
+      ],
+      "description": "Owning project id",
+      "type": "ZodNumber",
+    },
+    "title": {
+      "description": "Task title",
+      "type": "ZodString",
+    },
+    "truncated": {
+      "description": "True if the response was clipped by the server's MAX_RESPONSE_CHARS gate. Only \`description\` is clipped (other fields are fixed-shape); the agent can re-issue with raised MAX_RESPONSE_CHARS in the server env to see the full text.",
+      "type": "ZodBoolean",
+    },
+    "type": {
+      "description": "Task type (action | meet | call)",
+      "type": "ZodString",
+    },
+    "userId": {
+      "description": "UUID of the primary assignee (Weeek member id, matches weeek_list_members.id). Null if the task is unassigned.",
+      "inner": {
+        "type": "ZodString",
+      },
+      "type": "ZodNullable",
+    },
+  },
+  "weeek_create_task": {
+    "assignees": {
+      "description": "UUIDs of every assignee on the task (matches weeek_list_members.id). Empty if the task is unassigned; includes userId on assigned tasks.",
+      "element": {
+        "type": "ZodString",
+      },
+      "type": "ZodArray",
+    },
+    "completed": {
+      "description": "Whether the task is completed",
+      "type": "ZodBoolean",
+    },
+    "description": {
+      "description": "Task description (nullable). May end with the marker '…[truncated]' if the response hit MAX_RESPONSE_CHARS — see the truncated field.",
+      "inner": {
+        "type": "ZodString",
+      },
+      "type": "ZodNullable",
+    },
+    "id": {
+      "checks": [
+        {
+          "kind": "int",
+          "value": undefined,
+        },
+      ],
+      "description": "Stable Weeek task identifier",
+      "type": "ZodNumber",
+    },
+    "priority": {
+      "description": "Priority code (commonly 0=Low, 1=Medium, 2=High, 3=Hold), or null when no priority is set. The range is not guaranteed by the API.",
+      "inner": {
+        "checks": [
+          {
+            "kind": "int",
+            "value": undefined,
+          },
+        ],
+        "type": "ZodNumber",
+      },
+      "type": "ZodNullable",
+    },
+    "projectId": {
+      "checks": [
+        {
+          "kind": "int",
+          "value": undefined,
+        },
+      ],
+      "description": "Owning project id",
+      "type": "ZodNumber",
+    },
+    "title": {
+      "description": "Task title",
+      "type": "ZodString",
+    },
+    "truncated": {
+      "description": "True if the response was clipped by the server's MAX_RESPONSE_CHARS gate. Only \`description\` is clipped (other fields are fixed-shape); the agent can re-issue with raised MAX_RESPONSE_CHARS in the server env to see the full text.",
+      "type": "ZodBoolean",
+    },
+    "type": {
+      "description": "Task type (action | meet | call)",
+      "type": "ZodString",
+    },
+    "userId": {
+      "description": "UUID of the primary assignee (Weeek member id, matches weeek_list_members.id). Null if the task is unassigned.",
+      "inner": {
+        "type": "ZodString",
+      },
+      "type": "ZodNullable",
+    },
+  },
+  "weeek_get_me": {
+    "email": {
+      "description": "Email address of the authenticated Weeek user",
+      "type": "ZodString",
+    },
+    "id": {
+      "description": "Stable Weeek user identifier",
+      "options": [
+        {
+          "type": "ZodNumber",
+        },
+        {
+          "type": "ZodString",
+        },
+      ],
+      "type": "ZodUnion",
+    },
+    "name": {
+      "description": "Display name of the authenticated Weeek user",
+      "type": "ZodString",
+    },
+  },
+  "weeek_get_project": {
+    "color": {
+      "description": "Hex or named accent color",
+      "type": "ZodString",
+    },
+    "description": {
+      "description": "Project description (nullable). May end with the marker '…[truncated]' if the response hit MAX_RESPONSE_CHARS — see the truncated field.",
+      "inner": {
+        "type": "ZodString",
+      },
+      "type": "ZodNullable",
+    },
+    "id": {
+      "checks": [
+        {
+          "kind": "int",
+          "value": undefined,
+        },
+      ],
+      "description": "Stable Weeek project identifier",
+      "type": "ZodNumber",
+    },
+    "isPrivate": {
+      "description": "True if the project is private",
+      "type": "ZodBoolean",
+    },
+    "title": {
+      "description": "Project title",
+      "type": "ZodString",
+    },
+    "truncated": {
+      "description": "True if the response was clipped by the server's MAX_RESPONSE_CHARS gate. Only \`description\` is clipped (other fields are fixed-shape); raise MAX_RESPONSE_CHARS in the server env to receive the full text.",
+      "type": "ZodBoolean",
+    },
+  },
+  "weeek_get_task": {
+    "assignees": {
+      "description": "UUIDs of every assignee on the task (matches weeek_list_members.id). Empty if the task is unassigned; includes userId on assigned tasks.",
+      "element": {
+        "type": "ZodString",
+      },
+      "type": "ZodArray",
+    },
+    "completed": {
+      "description": "Whether the task is completed",
+      "type": "ZodBoolean",
+    },
+    "description": {
+      "description": "Task description (nullable). May end with the marker '…[truncated]' if the response hit MAX_RESPONSE_CHARS — see the truncated field.",
+      "inner": {
+        "type": "ZodString",
+      },
+      "type": "ZodNullable",
+    },
+    "id": {
+      "checks": [
+        {
+          "kind": "int",
+          "value": undefined,
+        },
+      ],
+      "description": "Stable Weeek task identifier",
+      "type": "ZodNumber",
+    },
+    "priority": {
+      "description": "Priority code (commonly 0=Low, 1=Medium, 2=High, 3=Hold), or null when no priority is set. The range is not guaranteed by the API.",
+      "inner": {
+        "checks": [
+          {
+            "kind": "int",
+            "value": undefined,
+          },
+        ],
+        "type": "ZodNumber",
+      },
+      "type": "ZodNullable",
+    },
+    "projectId": {
+      "checks": [
+        {
+          "kind": "int",
+          "value": undefined,
+        },
+      ],
+      "description": "Owning project id",
+      "type": "ZodNumber",
+    },
+    "title": {
+      "description": "Task title",
+      "type": "ZodString",
+    },
+    "truncated": {
+      "description": "True if the response was clipped by the server's MAX_RESPONSE_CHARS gate. Only \`description\` is clipped (other fields are fixed-shape); the agent can re-issue with raised MAX_RESPONSE_CHARS in the server env to see the full text.",
+      "type": "ZodBoolean",
+    },
+    "type": {
+      "description": "Task type (action | meet | call)",
+      "type": "ZodString",
+    },
+    "userId": {
+      "description": "UUID of the primary assignee (Weeek member id, matches weeek_list_members.id). Null if the task is unassigned.",
+      "inner": {
+        "type": "ZodString",
+      },
+      "type": "ZodNullable",
+    },
+  },
+  "weeek_list_board_columns": {
+    "boardColumns": {
+      "description": "Columns belonging to the requested board. Array order is the upstream sort signal — preserved verbatim (no \`position\` / \`sortOrder\` field).",
+      "element": {
+        "shape": {
+          "boardId": {
+            "checks": [
+              {
+                "kind": "int",
+                "value": undefined,
+              },
+            ],
+            "description": "Owning board id",
+            "type": "ZodNumber",
+          },
+          "id": {
+            "checks": [
+              {
+                "kind": "int",
+                "value": undefined,
+              },
+            ],
+            "description": "Stable Weeek board column identifier",
+            "type": "ZodNumber",
+          },
+          "name": {
+            "description": "Column name (Weeek uses \`name\`, not \`title\`, for board columns)",
+            "type": "ZodString",
+          },
+        },
+        "type": "ZodObject",
+      },
+      "type": "ZodArray",
+    },
+    "truncated": {
+      "description": "True if the response was clipped by the server's MAX_RESPONSE_CHARS gate. Re-issue with a narrower board_id or raise MAX_RESPONSE_CHARS in the server env to receive the full payload.",
+      "type": "ZodBoolean",
+    },
+  },
+  "weeek_list_boards": {
+    "boards": {
+      "description": "Boards belonging to the requested project",
+      "element": {
+        "shape": {
+          "id": {
+            "checks": [
+              {
+                "kind": "int",
+                "value": undefined,
+              },
+            ],
+            "description": "Stable Weeek board identifier",
+            "type": "ZodNumber",
+          },
+          "isPrivate": {
+            "description": "True if the board is private",
+            "type": "ZodBoolean",
+          },
+          "name": {
+            "description": "Board name (Weeek uses \`name\`, not \`title\`, for boards)",
+            "type": "ZodString",
+          },
+          "projectId": {
+            "checks": [
+              {
+                "kind": "int",
+                "value": undefined,
+              },
+            ],
+            "description": "Owning project id",
+            "type": "ZodNumber",
+          },
+        },
+        "type": "ZodObject",
+      },
+      "type": "ZodArray",
+    },
+    "truncated": {
+      "description": "True if the response was clipped by the server's MAX_RESPONSE_CHARS gate. Re-issue with a narrower project_id or raise MAX_RESPONSE_CHARS in the server env to receive the full payload.",
+      "type": "ZodBoolean",
+    },
+  },
+  "weeek_list_members": {
+    "members": {
+      "description": "Workspace members visible to the configured Weeek account",
+      "element": {
+        "shape": {
+          "email": {
+            "description": "Member's email address",
+            "type": "ZodString",
+          },
+          "firstName": {
+            "description": "Given name (nullable)",
+            "inner": {
+              "type": "ZodString",
+            },
+            "type": "ZodNullable",
+          },
+          "id": {
+            "description": "Stable Weeek member identifier (string, unlike most resources)",
+            "type": "ZodString",
+          },
+          "lastName": {
+            "description": "Family name (nullable)",
+            "inner": {
+              "type": "ZodString",
+            },
+            "type": "ZodNullable",
+          },
+        },
+        "type": "ZodObject",
+      },
+      "type": "ZodArray",
+    },
+    "truncated": {
+      "description": "True if the response was clipped by the server's MAX_RESPONSE_CHARS gate. Re-issue with stricter filters or raise MAX_RESPONSE_CHARS in the server env to receive the full member list.",
+      "type": "ZodBoolean",
+    },
+  },
+  "weeek_list_projects": {
+    "projects": {
+      "description": "All projects visible to the configured Weeek account",
+      "element": {
+        "shape": {
+          "color": {
+            "description": "Hex or named accent color",
+            "type": "ZodString",
+          },
+          "id": {
+            "checks": [
+              {
+                "kind": "int",
+                "value": undefined,
+              },
+            ],
+            "description": "Stable Weeek project identifier",
+            "type": "ZodNumber",
+          },
+          "isPrivate": {
+            "description": "True if the project is private",
+            "type": "ZodBoolean",
+          },
+          "title": {
+            "description": "Project title",
+            "type": "ZodString",
+          },
+        },
+        "type": "ZodObject",
+      },
+      "type": "ZodArray",
+    },
+    "truncated": {
+      "description": "True if the response was clipped by the server's MAX_RESPONSE_CHARS gate. Re-issue with stricter filters (smaller per_page, narrower project_id) or raise MAX_RESPONSE_CHARS in the server env to receive the full payload.",
+      "type": "ZodBoolean",
+    },
+  },
+  "weeek_list_tags": {
+    "tags": {
+      "description": "All tags defined in the workspace",
+      "element": {
+        "shape": {
+          "color": {
+            "description": "Tag color (hex or named)",
+            "type": "ZodString",
+          },
+          "id": {
+            "checks": [
+              {
+                "kind": "int",
+                "value": undefined,
+              },
+            ],
+            "description": "Stable Weeek tag identifier",
+            "type": "ZodNumber",
+          },
+          "title": {
+            "description": "Tag title",
+            "type": "ZodString",
+          },
+        },
+        "type": "ZodObject",
+      },
+      "type": "ZodArray",
+    },
+    "truncated": {
+      "description": "True if the response was clipped by the server's MAX_RESPONSE_CHARS gate. Re-issue with stricter filters or raise MAX_RESPONSE_CHARS in the server env to receive the full tag list.",
+      "type": "ZodBoolean",
+    },
+  },
+  "weeek_list_tasks": {
+    "hasMore": {
+      "description": "True if more tasks exist beyond this page; call again with offset = previous offset + tasks.length",
+      "type": "ZodBoolean",
+    },
+    "tasks": {
+      "description": "Tasks matching the filters",
+      "element": {
+        "shape": {
+          "assignees": {
+            "description": "UUIDs of every assignee on the task (matches weeek_list_members.id). Empty if the task is unassigned; includes userId on assigned tasks.",
+            "element": {
+              "type": "ZodString",
+            },
+            "type": "ZodArray",
+          },
+          "completed": {
+            "description": "Whether the task is completed",
+            "type": "ZodBoolean",
+          },
+          "id": {
+            "checks": [
+              {
+                "kind": "int",
+                "value": undefined,
+              },
+            ],
+            "description": "Stable Weeek task identifier",
+            "type": "ZodNumber",
+          },
+          "priority": {
+            "description": "Priority code (commonly 0=Low, 1=Medium, 2=High, 3=Hold), or null when no priority is set. The range is not guaranteed by the API.",
+            "inner": {
+              "checks": [
+                {
+                  "kind": "int",
+                  "value": undefined,
+                },
+              ],
+              "type": "ZodNumber",
+            },
+            "type": "ZodNullable",
+          },
+          "projectId": {
+            "checks": [
+              {
+                "kind": "int",
+                "value": undefined,
+              },
+            ],
+            "description": "Owning project id",
+            "type": "ZodNumber",
+          },
+          "title": {
+            "description": "Task title",
+            "type": "ZodString",
+          },
+          "type": {
+            "description": "Task type (action | meet | call)",
+            "type": "ZodString",
+          },
+          "userId": {
+            "description": "UUID of the primary assignee (Weeek member id, matches weeek_list_members.id). Null if the task is unassigned.",
+            "inner": {
+              "type": "ZodString",
+            },
+            "type": "ZodNullable",
+          },
+        },
+        "type": "ZodObject",
+      },
+      "type": "ZodArray",
+    },
+    "truncated": {
+      "description": "True if the response was clipped by the server's MAX_RESPONSE_CHARS gate. Independent from hasMore (pagination): truncated=true means the local byte-budget gate fired, so re-issue with smaller per_page / narrower filters or raise MAX_RESPONSE_CHARS in the server env.",
+      "type": "ZodBoolean",
+    },
+  },
+  "weeek_move_task": {
+    "assignees": {
+      "description": "UUIDs of every assignee on the task (matches weeek_list_members.id). Empty if the task is unassigned; includes userId on assigned tasks.",
+      "element": {
+        "type": "ZodString",
+      },
+      "type": "ZodArray",
+    },
+    "completed": {
+      "description": "Whether the task is completed",
+      "type": "ZodBoolean",
+    },
+    "description": {
+      "description": "Task description (nullable). May end with the marker '…[truncated]' if the response hit MAX_RESPONSE_CHARS — see the truncated field.",
+      "inner": {
+        "type": "ZodString",
+      },
+      "type": "ZodNullable",
+    },
+    "id": {
+      "checks": [
+        {
+          "kind": "int",
+          "value": undefined,
+        },
+      ],
+      "description": "Stable Weeek task identifier",
+      "type": "ZodNumber",
+    },
+    "priority": {
+      "description": "Priority code (commonly 0=Low, 1=Medium, 2=High, 3=Hold), or null when no priority is set. The range is not guaranteed by the API.",
+      "inner": {
+        "checks": [
+          {
+            "kind": "int",
+            "value": undefined,
+          },
+        ],
+        "type": "ZodNumber",
+      },
+      "type": "ZodNullable",
+    },
+    "projectId": {
+      "checks": [
+        {
+          "kind": "int",
+          "value": undefined,
+        },
+      ],
+      "description": "Owning project id",
+      "type": "ZodNumber",
+    },
+    "title": {
+      "description": "Task title",
+      "type": "ZodString",
+    },
+    "truncated": {
+      "description": "True if the response was clipped by the server's MAX_RESPONSE_CHARS gate. Only \`description\` is clipped (other fields are fixed-shape); the agent can re-issue with raised MAX_RESPONSE_CHARS in the server env to see the full text.",
+      "type": "ZodBoolean",
+    },
+    "type": {
+      "description": "Task type (action | meet | call)",
+      "type": "ZodString",
+    },
+    "userId": {
+      "description": "UUID of the primary assignee (Weeek member id, matches weeek_list_members.id). Null if the task is unassigned.",
+      "inner": {
+        "type": "ZodString",
+      },
+      "type": "ZodNullable",
+    },
+  },
+  "weeek_set_task_mr_link": {
+    "assignees": {
+      "description": "UUIDs of every assignee on the task (matches weeek_list_members.id). Empty if the task is unassigned; includes userId on assigned tasks.",
+      "element": {
+        "type": "ZodString",
+      },
+      "type": "ZodArray",
+    },
+    "completed": {
+      "description": "Whether the task is completed",
+      "type": "ZodBoolean",
+    },
+    "description": {
+      "description": "Task description (nullable). May end with the marker '…[truncated]' if the response hit MAX_RESPONSE_CHARS — see the truncated field.",
+      "inner": {
+        "type": "ZodString",
+      },
+      "type": "ZodNullable",
+    },
+    "id": {
+      "checks": [
+        {
+          "kind": "int",
+          "value": undefined,
+        },
+      ],
+      "description": "Stable Weeek task identifier",
+      "type": "ZodNumber",
+    },
+    "priority": {
+      "description": "Priority code (commonly 0=Low, 1=Medium, 2=High, 3=Hold), or null when no priority is set. The range is not guaranteed by the API.",
+      "inner": {
+        "checks": [
+          {
+            "kind": "int",
+            "value": undefined,
+          },
+        ],
+        "type": "ZodNumber",
+      },
+      "type": "ZodNullable",
+    },
+    "projectId": {
+      "checks": [
+        {
+          "kind": "int",
+          "value": undefined,
+        },
+      ],
+      "description": "Owning project id",
+      "type": "ZodNumber",
+    },
+    "title": {
+      "description": "Task title",
+      "type": "ZodString",
+    },
+    "truncated": {
+      "description": "True if the response was clipped by the server's MAX_RESPONSE_CHARS gate. Only \`description\` is clipped (other fields are fixed-shape); the agent can re-issue with raised MAX_RESPONSE_CHARS in the server env to see the full text.",
+      "type": "ZodBoolean",
+    },
+    "type": {
+      "description": "Task type (action | meet | call)",
+      "type": "ZodString",
+    },
+    "userId": {
+      "description": "UUID of the primary assignee (Weeek member id, matches weeek_list_members.id). Null if the task is unassigned.",
+      "inner": {
+        "type": "ZodString",
+      },
+      "type": "ZodNullable",
+    },
+  },
+  "weeek_update_task": {
+    "assignees": {
+      "description": "UUIDs of every assignee on the task (matches weeek_list_members.id). Empty if the task is unassigned; includes userId on assigned tasks.",
+      "element": {
+        "type": "ZodString",
+      },
+      "type": "ZodArray",
+    },
+    "completed": {
+      "description": "Whether the task is completed",
+      "type": "ZodBoolean",
+    },
+    "description": {
+      "description": "Task description (nullable). May end with the marker '…[truncated]' if the response hit MAX_RESPONSE_CHARS — see the truncated field.",
+      "inner": {
+        "type": "ZodString",
+      },
+      "type": "ZodNullable",
+    },
+    "id": {
+      "checks": [
+        {
+          "kind": "int",
+          "value": undefined,
+        },
+      ],
+      "description": "Stable Weeek task identifier",
+      "type": "ZodNumber",
+    },
+    "priority": {
+      "description": "Priority code (commonly 0=Low, 1=Medium, 2=High, 3=Hold), or null when no priority is set. The range is not guaranteed by the API.",
+      "inner": {
+        "checks": [
+          {
+            "kind": "int",
+            "value": undefined,
+          },
+        ],
+        "type": "ZodNumber",
+      },
+      "type": "ZodNullable",
+    },
+    "projectId": {
+      "checks": [
+        {
+          "kind": "int",
+          "value": undefined,
+        },
+      ],
+      "description": "Owning project id",
+      "type": "ZodNumber",
+    },
+    "title": {
+      "description": "Task title",
+      "type": "ZodString",
+    },
+    "truncated": {
+      "description": "True if the response was clipped by the server's MAX_RESPONSE_CHARS gate. Only \`description\` is clipped (other fields are fixed-shape); the agent can re-issue with raised MAX_RESPONSE_CHARS in the server env to see the full text.",
+      "type": "ZodBoolean",
+    },
+    "type": {
+      "description": "Task type (action | meet | call)",
+      "type": "ZodString",
+    },
+    "userId": {
+      "description": "UUID of the primary assignee (Weeek member id, matches weeek_list_members.id). Null if the task is unassigned.",
+      "inner": {
+        "type": "ZodString",
+      },
+      "type": "ZodNullable",
+    },
+  },
+}
+`;

@@ -1,0 +1,61 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.YOLKINS/weeek-mcp",
+  "description": "Local MCP server for Weeek (stdio transport) — read-only by default, opt-in write tools.",
+  "version": "1.0.0",
+  "repository": {
+    "url": "https://github.com/YOLKINS/weeek-mcp",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "weeek-mcp",
+      "version": "1.0.0",
+      "runtimeHint": "npx",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "WEEEK_ACCESS_TOKEN",
+          "description": "Weeek Public API v1 access token. Required — the server refuses to start without it.",
+          "isRequired": true,
+          "isSecret": true
+        },
+        {
+          "name": "READ_ONLY",
+          "description": "Gate for the write tools. Defaults to 'true': a fresh install exposes only the ten read tools. Set to 'false' to additionally expose the five write tools (create/update/move/complete a task, set an MR link) — an explicit operator opt-in, never the default.",
+          "isRequired": false,
+          "default": "true"
+        },
+        {
+          "name": "ENABLED_TOOLS",
+          "description": "Optional comma-separated allowlist of tool names to register (still subject to READ_ONLY). Pair with READ_ONLY=false for a granular write rollout, e.g. 'weeek_complete_task'.",
+          "isRequired": false
+        },
+        {
+          "name": "WEEEK_BASE_URL",
+          "description": "Override the Weeek API base URL. Defaults to the public v1 endpoint.",
+          "isRequired": false,
+          "default": "https://api.weeek.net/public/v1"
+        },
+        {
+          "name": "WEEEK_TIMEOUT_MS",
+          "description": "Per-request timeout in milliseconds.",
+          "isRequired": false,
+          "default": "30000",
+          "format": "number"
+        },
+        {
+          "name": "MAX_RESPONSE_CHARS",
+          "description": "Upper bound on the JSON length of a single tool response, protecting the agent's context window from unbounded list/detail payloads.",
+          "isRequired": false,
+          "default": "65536",
+          "format": "number"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+name: codeql
+
+# Static analysis of the TypeScript surface, on three triggers (#58).
+#
+# Push and pull_request are the ordinary ones: they answer "did this change
+# introduce something". The **schedule** is the one that matters most, and it
+# is the reason this workflow is not just a step in `ci.yml`: CodeQL's query
+# packs are updated continuously, so a rule published next month should find a
+# line written last year without waiting for someone to happen to touch that
+# file. A scan that only ever runs on a diff can never do that.
+#
+# `ci.yml` and `live-smoke.yml` are untouched by this workflow — it shares no
+# job, no cache key and no concurrency group with either.
+#
+# NOTE for whoever enables this: uploading CodeQL results to a **private**
+# repository requires GitHub Code Security (Advanced Security) on the
+# repository. On a public repository code scanning is free and this runs as-is.
+# If the upload step fails with "Advanced Security must be enabled", that is
+# the repository's plan talking, not a bug in this file.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Mondays, 04:17 UTC. Off the hour on purpose: the top of the hour is when
+    # every scheduled workflow on GitHub queues at once.
+    - cron: "17 4 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  # `github.event_name` is in the key on purpose, and it is the difference
+  # between this workflow working and quietly not. A scheduled run and a push
+  # run both carry `github.ref == refs/heads/main`, so on the key without it a
+  # Monday-morning push cancels the weekly scan mid-flight — silently deleting
+  # the one trigger the schedule exists to provide. Superseding a push with a
+  # newer push, or a PR update with its successor, is still what we want.
+  group: codeql-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: analyze (javascript-typescript)
+    runs-on: ubuntu-latest
+    # Declared at the job, not the workflow, so the elevated one is scoped to
+    # the only job that needs it. This block replaces the workflow-level
+    # `contents: read` above rather than adding to it, which is why `contents`
+    # is repeated.
+    permissions:
+      contents: read # actions/checkout
+      security-events: write # the SARIF upload in analyze@v4
+      actions: read # required on private repositories only; harmless on public
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          # One language identifier covers both halves of this tree: the
+          # TypeScript under `src/` and `tests/`, and the JavaScript config
+          # files (`eslint.config.js`) that no `tsc` run ever sees.
+          languages: javascript-typescript
+          # Nothing needs compiling for this analyser — it reads the sources
+          # directly. `npm ci` + `npm run build` here would buy nothing and
+          # cost a full install on every scan.
+          build-mode: none
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:javascript-typescript"

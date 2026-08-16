@@ -1,0 +1,33 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022"],
+    "outDir": "dist",
+    "rootDir": "src",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    // TypeScript 6 no longer folds every installed `@types/*` package into the
+    // global scope by default, so the Node globals this server is built on
+    // (`process`, `fetch`, `URL`, `AbortController`, `setTimeout`) have to be
+    // asked for by name. `tsconfig.test.json` has always declared this; the
+    // src project was relying on the old implicit behaviour. Naming it is the
+    // more honest configuration under either compiler — it says which ambient
+    // surface `src/**` is allowed to reach, rather than inheriting whatever
+    // `@types/*` happens to be installed.
+    "types": ["node"],
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "declaration": false,
+    // Off deliberately (I9). `files` ships `dist/` without `src/`, so a `.map`
+    // in the tarball would point at `../src/*.ts` that no consumer has —
+    // dead weight that reads like a packaging bug. Debugging happens against
+    // the checkout, where `npm run dev` runs the TypeScript directly.
+    "sourceMap": false,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["src/**/*"]
+}

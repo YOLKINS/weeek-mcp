@@ -1,0 +1,78 @@
+# Dependabot — drift arrives on its own instead of being remembered (#58).
+#
+# Two ecosystems, because there are two ways this repository goes stale and
+# only one of them is visible in `package.json`:
+#
+#   - `npm` is the dependency set that produces the published artifact. A CVE
+#     in a transitive package is otherwise found by whoever happened to run
+#     `npm audit`, which is nobody on a schedule.
+#   - `github-actions` is the pinned action versions in `.github/workflows/**`.
+#     A stale or unmaintained action is invisible until it breaks or is
+#     compromised — there is no lockfile and no install step that would ever
+#     mention it.
+#
+# **No auto-merge, on any group.** Dependabot has no auto-merge key of its own;
+# auto-merge is a workflow that calls `gh pr merge --auto` on Dependabot's PRs,
+# and this repository deliberately has no such workflow. That follows from the
+# in-house-mostly posture recorded in CONTRIBUTING.md: every change passes
+# through the same human-run pre-merge gate, and a dependency bump is not
+# special. Dependabot's job here is to *surface* drift, not to land it.
+# `tests/invariants/github-automation.test.ts` fails if an auto-merge step is
+# ever added to any workflow.
+#
+# Nothing is on an `ignore` list, including the two deliberately held runtime
+# pins (`zod` at `^3`, `@modelcontextprotocol/sdk` at `^1.29`). An `ignore`
+# entry would suppress exactly the signal the hold exists to watch for — the
+# CLAUDE.md rationale for both says "re-open when the SDK line itself moves",
+# and this is the mechanism that says it moved. Closing a major-bump PR does
+# not make it come back until the next release of that package, so the noise
+# from holding a pin in the open is bounded to one PR per upstream release.
+
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "05:00"
+      timezone: Etc/UTC
+    labels:
+      - dependencies
+    # The repo curates commits before merge (ADR 0001), so the incoming
+    # subject only has to be close enough to keep: `build(deps-dev): bump ...`.
+    commit-message:
+      prefix: build
+      include: scope
+    groups:
+      # One PR for a routine toolchain refresh rather than seven. The devDeps
+      # move together in practice anyway — the I9 bump (#56) moved all seven
+      # entries at once (Vitest and its coverage provider, ESLint with
+      # `@eslint/js` and `typescript-eslint`, `@types/node`, TypeScript), and
+      # reviewing that as seven separate PRs would have hidden the
+      # interactions that were the whole finding.
+      dev-dependencies:
+        dependency-type: development
+    # Production dependencies are deliberately NOT grouped. There are two of
+    # them and both are pinned decisions; each deserves its own PR to argue
+    # with, not a shared one that gets closed wholesale.
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "05:00"
+      timezone: Etc/UTC
+    labels:
+      - dependencies
+    commit-message:
+      prefix: ci
+      include: scope
+    groups:
+      # Every action here is infrastructure for the same gate; a week where
+      # three of them bump is one review, not three.
+      actions:
+        patterns:
+          - "*"
