@@ -31,7 +31,7 @@ Two rules hold for **every** row in the table below:
 | `weeek_validation_error` | HTTP 400, HTTP 422 — **and** a request this server refused to send at all (see below) | **Only after fixing the arguments** | The request carried a value Weeek rejected — a bad id, a missing required field, a wrong type — or was rejected locally before any call. Agent: correct the arguments and re-issue. |
 | `weeek_rate_limited` | HTTP 429 | **Yes**, after a delay | Back off, then retry; reduce call frequency (e.g. fewer list calls with a smaller page size). |
 | `weeek_server_error` | HTTP 5xx | **Yes**, shortly | Upstream fault. If it persists, check Weeek's status page — nothing local will fix it. |
-| `weeek_network` | `fetch` rejected (DNS, TLS, connection refused) | **Yes** | The host could not reach `api.weeek.net`. Operator: check connectivity and `WEEEK_BASE_URL`. |
+| `weeek_network` | `fetch` rejected (DNS, TLS, connection refused), or the connection died mid-body under a 2xx | **Yes** | The host could not reach `api.weeek.net`, or lost it mid-response. Operator: check connectivity and `WEEEK_BASE_URL`. |
 | `weeek_timeout` | The request exceeded `WEEEK_TIMEOUT_MS` (`AbortError`) | **Yes**, once | Retry; if a large workspace times out repeatedly, raise `WEEEK_TIMEOUT_MS`. |
 | `weeek_invalid_response` | 2xx whose body is not JSON, is not an object, lacks `success: true`, or lacks the expected envelope key; any other non-2xx status not listed above | **Once** | If it persists, the upstream API contract has drifted — file an issue. This is the "the API sent something unexpected" code. |
 

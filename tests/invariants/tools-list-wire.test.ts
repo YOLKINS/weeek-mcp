@@ -30,7 +30,7 @@ interface ToolsListEntry {
 
 interface JsonRpcResponse {
   id?: number;
-  result?: { tools?: ToolsListEntry[] };
+  result?: { tools?: ToolsListEntry[]; instructions?: string };
 }
 
 const INITIALIZE =
@@ -45,12 +45,20 @@ interface ListResult {
   tools: ToolsListEntry[];
   /** Length of the raw NDJSON line the client received — the real payload. */
   rawChars: number;
+  /**
+   * `result.instructions` from the id=1 response. INVARIANT-14 checks it
+   * against `tools`; before 1.0.1 this exchange threw the initialize reply
+   * away, which is exactly how the prose drifted a whole increment behind the
+   * surface without a single test noticing.
+   */
+  instructions: string;
 }
 
 /**
  * Drive a real `initialize` → `notifications/initialized` → `tools/list`
- * exchange against a spawned server and return the id=2 result plus the
- * length of the line it arrived on.
+ * exchange against a spawned server and return BOTH responses: the id=1
+ * `instructions` and the id=2 tool list, plus the length of the line the
+ * latter arrived on.
  */
 async function toolsList(env: Record<string, string>): Promise<ListResult> {
   const proc = spawnServer(env);
@@ -66,28 +74,48 @@ async function toolsList(env: Record<string, string>): Promise<ListResult> {
   //
   // `slice(0, -1)` drops the trailing fragment after the last newline, so only
   // COMPLETED lines are considered. The 15-tool response is ~37 KB and arrives
-  // in several chunks; `"id":2` and `"tools"` both appear in its first few
-  // bytes, so matching on the raw buffer would happily hand a half-arrived
-  // line to `JSON.parse`.
+  // in several chunks, so a substring match on the raw buffer would happily
+  // hand a half-arrived line to `JSON.parse`. Responses are picked apart by
+  // parsing each finished line and switching on `id` rather than by matching
+  // `"id":1` / `"id":2` as text — the ids are the protocol's, not a substring
+  // we hope stays unambiguous inside 37 KB of JSON Schema.
   const deadline = Date.now() + 8_000;
-  let line: string | undefined;
+  let init: JsonRpcResponse | undefined;
+  let list: JsonRpcResponse | undefined;
+  let listLine: string | undefined;
   while (Date.now() < deadline) {
-    line = stdout
-      .split("\n")
-      .slice(0, -1)
-      .find((l) => l.includes('"id":2') && l.includes('"tools"'));
-    if (line) break;
+    for (const l of stdout.split("\n").slice(0, -1)) {
+      let parsed: JsonRpcResponse;
+      try {
+        parsed = JSON.parse(l) as JsonRpcResponse;
+      } catch {
+        continue;
+      }
+      if (parsed.id === 1) init = parsed;
+      if (parsed.id === 2) {
+        list = parsed;
+        listLine = l;
+      }
+    }
+    if (init && list) break;
     await new Promise<void>((resolve) => setTimeout(resolve, 25));
   }
   proc.kill("SIGTERM");
   await new Promise<void>((resolve) => proc.on("exit", () => resolve()));
 
   expect(
-    line,
+    list,
     `no tools/list response from ${DIST_INDEX}; stdout was: ${stdout.slice(0, 400)}`,
   ).toBeDefined();
-  const parsed = JSON.parse(line as string) as JsonRpcResponse;
-  return { tools: parsed.result?.tools ?? [], rawChars: (line as string).length };
+  expect(
+    init,
+    `no initialize response from ${DIST_INDEX}; stdout was: ${stdout.slice(0, 400)}`,
+  ).toBeDefined();
+  return {
+    tools: list?.result?.tools ?? [],
+    rawChars: (listLine ?? "").length,
+    instructions: init?.result?.instructions ?? "",
+  };
 }
 
 // One exchange per configuration, shared by every assertion about it. Each
@@ -176,6 +204,112 @@ describe("I8 seal — the tool surface on the wire", () => {
         `[seal] tools/list payload at 15 tools: ${rawChars} chars\n`,
       );
       expect(rawChars).toBeLessThan(40_000);
+    },
+    20_000,
+  );
+});
+
+// INVARIANT-14 — the `instructions` prose matches the advertised surface.
+//
+// The server's `instructions` is the first thing a client reads and the only
+// natural-language account of what this server is. Through 1.0.0 it was a hand
+// written literal in `src/index.ts`, and it drifted: it opened "Read-only MCP
+// server for Weeek", listed the ten read tools, and closed with "Mutating
+// tools land in I8+" — while I8 had shipped and `READ_ONLY=false` was serving
+// five write tools it never mentioned. `tools/list` was correct the whole
+// time, and the field is advisory by spec, so nothing was broken in the
+// protocol sense. It was simply false, and nothing in the suite could tell.
+//
+// Both sides are compared as TOKEN SETS, deliberately, never with
+// `includes()`:
+//
+//   "weeek_list_tasks_extra".includes("weeek_list_tasks") === true
+//
+// so a substring check would call a renamed-away tool "still mentioned". And
+// `\b` does NOT rescue it — `_` is a word character, so there is no boundary
+// between `tasks` and `_extra` for `\b` to find. What rescues it is the GREEDY
+// `[a-z_]+`, which swallows the whole identifier and yields the token
+// `weeek_list_tasks_extra`, which then simply fails set equality. Anyone
+// "tidying" this into a lazy `[a-z_]+?` silently re-opens the hole.
+const TOOL_TOKEN = /\b(ping|weeek_[a-z_]+)\b/g;
+
+function toolTokens(text: string): Set<string> {
+  return new Set(text.match(TOOL_TOKEN) ?? []);
+}
+
+describe("INVARIANT-14 — instructions match the advertised surface", () => {
+  beforeAll(() => {
+    ensureBuilt();
+  });
+
+  it.each<["true" | "false", number]>([
+    ["true", 10],
+    ["false", 15],
+  ])(
+    "READ_ONLY=%s: every advertised tool is named in instructions, and vice versa",
+    async (readOnly, expectedCount) => {
+      const { tools, instructions } = await listOnce(readOnly);
+      expect(tools).toHaveLength(expectedCount);
+      expect(instructions.length).toBeGreaterThan(0);
+
+      // Run the same tokenizer over the wire-side names too, rather than using
+      // them raw. It costs nothing and it means a future tool whose name the
+      // pattern cannot express (camelCase, a digit, a leading underscore)
+      // fails HERE — visibly, in the guard — instead of quietly dropping out
+      // of the set on one side and passing.
+      const advertised = new Set(tools.map((t) => t.name));
+      const advertisedTokens = toolTokens(tools.map((t) => t.name).join(" "));
+      expect(
+        advertisedTokens,
+        "a tool name that the INVARIANT-14 tokenizer cannot represent — widen the pattern in the same PR",
+      ).toEqual(advertised);
+
+      const named = toolTokens(instructions);
+
+      // (1) nothing advertised goes unmentioned.
+      expect([...advertised].filter((n) => !named.has(n))).toEqual([]);
+      // (2) nothing mentioned goes unadvertised. This is the assertion that
+      // constrains the prose: a sentence like "set READ_ONLY=false to get
+      // `weeek_create_task`" would fail under READ_ONLY=true, because that
+      // name is not on this server's surface.
+      expect([...named].filter((n) => !advertised.has(n))).toEqual([]);
+    },
+    20_000,
+  );
+
+  it.each<["true" | "false"]>([["true"], ["false"]])(
+    "READ_ONLY=%s: the read-only claim agrees with the annotations on the wire",
+    async (readOnly) => {
+      const { tools, instructions } = await listOnce(readOnly);
+      const writes = tools.filter(
+        (t) => t.annotations?.["readOnlyHint"] === false,
+      );
+
+      // (3) The claim is derived from the SURFACE, not from the env flag —
+      // `READ_ONLY=false` plus a read-only allowlist is a read-only server,
+      // and the prose should say so. So the assertion keys off the annotations
+      // the client actually received.
+      if (writes.length === 0) {
+        expect(instructions).toContain("Read-only MCP server for Weeek.");
+        expect(instructions).not.toContain("MODIFY Weeek data");
+      } else {
+        expect(instructions).not.toContain("Read-only MCP server");
+        expect(instructions).toContain("MODIFY Weeek data");
+        expect(instructions).toContain(
+          `${String(writes.length)} of the tools below`,
+        );
+      }
+    },
+    20_000,
+  );
+
+  it(
+    "the 1.0.0 prose is gone from the wire: no 'Mutating tools land in I8+'",
+    async () => {
+      for (const readOnly of ["true", "false"] as const) {
+        const { instructions } = await listOnce(readOnly);
+        expect(instructions).not.toContain("Mutating tools land in I8+");
+      }
     },
     20_000,
   );

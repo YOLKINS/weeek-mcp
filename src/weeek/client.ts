@@ -80,37 +80,89 @@ export function createWeeekClient(config: EnvConfig): WeeekClient {
                 : {}),
               signal: controller.signal,
             };
-      let res: Response;
+      // 1.0.1: the timer is cleared in ONE outer `finally` that spans
+      // both the header phase and the body phase, so `WEEEK_TIMEOUT_MS` is a
+      // deadline for the whole request rather than for `fetch` alone. Before
+      // this, `clearTimeout` ran the moment headers arrived, and a server that
+      // sent a status line and then stalled was bounded only by undici's own
+      // ~300 s `bodyTimeout` — measured at 6 020 ms of hang under
+      // `WEEEK_TIMEOUT_MS=500` with `signal.aborted === false`.
       try {
-        res = await fetch(url, init);
-      } catch (err) {
-        const isAbort =
-          err instanceof DOMException && err.name === "AbortError";
-        throw new WeeekError({
-          code: isAbort ? "weeek_timeout" : "weeek_network",
-          message: isAbort
-            ? `weeek request timed out after ${String(config.timeoutMs)}ms`
-            : `weeek network error for ${redactUrl(url)}`,
-          cause: err,
-        });
+        let res: Response;
+        try {
+          res = await fetch(url, init);
+        } catch (err) {
+          const isAbort =
+            err instanceof DOMException && err.name === "AbortError";
+          throw new WeeekError({
+            code: isAbort ? "weeek_timeout" : "weeek_network",
+            message: isAbort
+              ? `weeek request timed out after ${String(config.timeoutMs)}ms`
+              : `weeek network error for ${redactUrl(url)}`,
+            cause: err,
+          });
+        }
+
+        let text: string;
+        try {
+          text = await res.text();
+        } catch (err) {
+          // Body-phase classification, in the order the three outcomes differ.
+          //
+          // (a) Our own deadline fired mid-read. Discriminated on
+          // `controller.signal.aborted`, NOT on `instanceof DOMException` as
+          // the header phase above does. Both hold on Node 24.5.0 (measured:
+          // `DOMException` / `name: "AbortError"` / `signal.aborted === true`),
+          // so this is belt-and-braces — but it is the one classification in
+          // this file that would otherwise depend on which shape a given
+          // undici version throws from a body read. The header-phase predicate
+          // deliberately stays as it is: RETRO-14 pins it.
+          if (controller.signal.aborted) {
+            throw new WeeekError({
+              code: "weeek_timeout",
+              message: `weeek request timed out after ${String(config.timeoutMs)}ms`,
+              cause: err,
+            });
+          }
+          // (b) The socket died under a 2xx. Measured: `TypeError: terminated`
+          // with a `SocketError` cause and `signal.aborted === false`. This
+          // used to collapse into `text = ""` → `body = null` →
+          // `weeek_invalid_response`, whose sentence tells the agent "the
+          // upstream API contract may have drifted — file an issue". That
+          // blamed Weeek for our own severed connection. It is a network fault
+          // and says so.
+          if (res.status >= 200 && res.status < 300) {
+            throw new WeeekError({
+              code: "weeek_network",
+              message: `weeek network error for ${redactUrl(url)}`,
+              cause: err,
+            });
+          }
+          // (c) The body failed under a non-2xx. Here the empty-string
+          // fallback is the RIGHT answer and is kept: the status alone already
+          // classifies the failure correctly via `unwrap.codeForStatus` (a
+          // truncated 502 is `weeek_server_error`, which is what happened),
+          // and an unconditional `weeek_network` would destroy that. Pinned by
+          // RETRO-15 below in `tests/weeek/client.test.ts`.
+          text = "";
+        }
+
+        let body: unknown = null;
+        if (text.length > 0) {
+          try {
+            body = JSON.parse(text);
+          } catch {
+            throw new WeeekError({
+              code: "weeek_invalid_response",
+              message: "weeek response was not valid JSON",
+              status: res.status,
+            });
+          }
+        }
+        return { status: res.status, body };
       } finally {
         clearTimeout(timer);
       }
-
-      let body: unknown = null;
-      const text = await res.text().catch(() => "");
-      if (text.length > 0) {
-        try {
-          body = JSON.parse(text);
-        } catch {
-          throw new WeeekError({
-            code: "weeek_invalid_response",
-            message: "weeek response was not valid JSON",
-            status: res.status,
-          });
-        }
-      }
-      return { status: res.status, body };
     },
   };
 }

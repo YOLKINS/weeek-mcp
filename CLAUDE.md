@@ -127,6 +127,19 @@ reference them by number, so keep them stable.
   Note the asymmetry: **inputs** are snake_case, **outputs** keep the
   upstream Weeek spelling (`projectId`, `hasMore`, `boardId`) so an agent
   can correlate them with the API. Enforced by `mcp.test.ts`.
+- **INVARIANT-14 — `instructions` match the advertised surface.** The
+  server's `instructions` string is **derived** from the gate
+  (`selectTools` → `buildInstructions`), never hand-written: it names
+  exactly the tools `tools/list` returns, names no others, and claims
+  read-only only when no listed tool carries `readOnlyHint: false`.
+  Consequence for prose: you may not mention a tool the current gate hides
+  — "set `READ_ONLY=false` to get `weeek_create_task`" fails under
+  `READ_ONLY=true`. Both sides are compared as token sets via
+  `/\b(ping|weeek_[a-z_]+)\b/g`; `includes()` is wrong here
+  (`"weeek_list_tasks_extra".includes("weeek_list_tasks")` is `true`) and
+  `\b` does not save it — the greedy `[a-z_]+` does. Enforced on the wire by
+  `tests/invariants/tools-list-wire.test.ts`, at the source by
+  `tests/server/instructions.test.ts`.
 
 ---
 
@@ -163,7 +176,11 @@ Doc-side discipline:
 - Adding / removing / renaming a tool → update **all** of, in the same PR:
   `README.md`, `README.ru.md`, `examples/*.mcp.json`, `.env.example`,
   `docs/tools.md`, plus the literal tool counts (see the 10 / 15 note at
-  the top of this file).
+  the top of this file). The server's `instructions` string is **not** on
+  that list — it is derived from `TOOL_MANIFEST` in
+  `src/tools/registry.ts` and follows automatically (INVARIANT-14). Adding
+  a parenthetical hint for the new tool in `src/server/instructions.ts` is
+  optional; hand-writing its name into the prose is not a thing you do.
 - Changing any tool's `outputSchema` → regenerate the freeze snapshot
   deliberately and review the diff (`npx vitest run -u
   tests/invariants/output-schema-freeze.test.ts`). Every write tool must

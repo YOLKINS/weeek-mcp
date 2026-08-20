@@ -180,10 +180,17 @@ describe("createWeeekClient", () => {
     expect(we.code).toBe("weeek_network");
   });
 
-  // RETRO-15: pin the `await res.text().catch(() => "")` silent fallback at
-  // src/weeek/client.ts:62. A rejecting Response.text() must yield body=null
-  // and forward the status.
-  it("Response.text() rejection → body=null, status forwarded", async () => {
+  // RETRO-15: pin the body-phase empty-string fallback. A rejecting
+  // Response.text() under a NON-2xx must still yield body=null and forward the
+  // status, so `unwrap.codeForStatus` gets to classify on the status it has.
+  //
+  // 1.0.1 narrowed this fallback to non-2xx and left the fixture below
+  // untouched, which is the point worth stating: RETRO-15 was defending two
+  // behaviours at once — the correct one on non-2xx (a truncated 502 is a
+  // server error) and an incorrect one on 2xx (a severed socket reported as a
+  // drifted API contract). Splitting on the status keeps the first and fixes
+  // the second; the 502 fixture here still exercises the preserved branch.
+  it("Response.text() rejection on a NON-2xx → body=null, status forwarded", async () => {
     fetchSpy.mockResolvedValue({
       status: 502,
       text: () => Promise.reject(new TypeError("decode failed")),
@@ -192,6 +199,85 @@ describe("createWeeekClient", () => {
     const out = await client.request({ method: "GET", path: "/x" });
     expect(out.status).toBe(502);
     expect(out.body).toBeNull();
+  });
+
+  // 1.0.1, body phase (b). Measured against a local server that writes a
+  // 200 status line and then destroys the socket mid-body: `TypeError:
+  // terminated`, `cause` a `SocketError`, `signal.aborted === false`. Today
+  // that reaches the agent as `weeek_invalid_response` — "the upstream API
+  // contract may have drifted — file an issue" — for what is our own dead
+  // connection. It must be a network error.
+  it("2xx whose Response.text() rejects → weeek_network (not weeek_invalid_response)", async () => {
+    const socketError = new TypeError("terminated");
+    fetchSpy.mockResolvedValue({
+      status: 200,
+      text: () => Promise.reject(socketError),
+    } as unknown as Response);
+    const client = createWeeekClient(makeEnvConfig());
+    let err: unknown;
+    try {
+      await client.request({ method: "GET", path: "/x" });
+    } catch (e) {
+      err = e;
+    }
+    expect(err).toBeInstanceOf(WeeekError);
+    const we = err as WeeekError;
+    expect(we.code).toBe("weeek_network");
+    expect(we.cause).toBe(socketError);
+    // The redacted URL, not the platform's own text.
+    expect(we.message).not.toContain("terminated");
+  });
+
+  // 1.0.1, body phase (a). The deadline now spans the body read, so the
+  // client's own timer can fire while `res.text()` is in flight. Classified on
+  // `controller.signal.aborted` rather than the thrown shape — see the comment
+  // at the throw site. Fake timers drive the real `setTimeout` the client
+  // installs, so this covers the timer callback on the body path, not a
+  // simulated rejection.
+  it("the deadline spans the body read: abort during res.text() → weeek_timeout", async () => {
+    vi.useFakeTimers();
+    let signal: AbortSignal | undefined;
+    fetchSpy.mockImplementation((_url, init) => {
+      signal = init?.signal ?? undefined;
+      return Promise.resolve({
+        status: 200,
+        // Headers are in; the body never arrives on its own. Only the abort
+        // can end this — exactly the stall the old code could not bound.
+        text: () =>
+          new Promise<string>((_resolve, reject) => {
+            signal?.addEventListener("abort", () => {
+              reject(new DOMException("aborted", "AbortError"));
+            });
+          }),
+      } as unknown as Response);
+    });
+    const client = createWeeekClient(makeEnvConfig({ timeoutMs: 100 }));
+    const settled = client
+      .request({ method: "GET", path: "/x" })
+      .catch((e: unknown) => e);
+    // Let the fetch promise resolve so the read is genuinely under way before
+    // the clock moves.
+    await vi.advanceTimersByTimeAsync(0);
+    expect(signal?.aborted).toBe(false);
+    await vi.advanceTimersByTimeAsync(100);
+    expect(signal?.aborted).toBe(true);
+    const err = await settled;
+    expect(err).toBeInstanceOf(WeeekError);
+    expect((err as WeeekError).code).toBe("weeek_timeout");
+    expect((err as WeeekError).message).toContain("100");
+  });
+
+  // The converse of the two above: a body-phase failure that is neither an
+  // abort nor a 2xx keeps the status-driven path. Stated separately from
+  // RETRO-15 because it asserts the discriminator, not just the outcome.
+  it("a non-2xx body failure is NOT reclassified as weeek_network", async () => {
+    fetchSpy.mockResolvedValue({
+      status: 429,
+      text: () => Promise.reject(new TypeError("terminated")),
+    } as unknown as Response);
+    const client = createWeeekClient(makeEnvConfig());
+    const out = await client.request({ method: "GET", path: "/x" });
+    expect(out).toEqual({ status: 429, body: null });
   });
 
   it("weeek_network message redacts URL credentials", async () => {

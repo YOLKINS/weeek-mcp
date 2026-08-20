@@ -1,6 +1,6 @@
 {
   "name": "weeek-mcp",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": false,
   "description": "Local MCP server for Weeek (stdio transport) — read-only by default, opt-in write tools.",
   "mcpName": "io.github.YOLKINS/weeek-mcp",

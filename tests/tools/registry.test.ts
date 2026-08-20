@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { registerAllTools } from "../../src/tools/registry.js";
+import { registerAllTools, selectTools } from "../../src/tools/registry.js";
 import { logger } from "../../src/logging/logger.js";
 import type { LoggerMethodSpy } from "../helpers/spies.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -193,6 +193,58 @@ describe("registerAllTools", () => {
       "weeek_list_boards",
       "weeek_list_board_columns",
     ]);
+  });
+
+  // 1.0.1: the gate is callable on its own so `src/index.ts` can build
+  // `instructions` from it before the `McpServer` constructor, then hand the
+  // same selection here. That third-argument path is what production takes,
+  // and `src/index.ts` is excluded from coverage — so it is asserted here or
+  // nowhere.
+  it("an explicit selection is registered without re-running the gate", () => {
+    const { server, calls } = makeMockServer();
+    const config = makeEnvConfig({ readOnly: false });
+    const selected = selectTools(config);
+    infoSpy.mockClear();
+    warnSpy.mockClear();
+
+    registerAllTools(server, { config, weeek: dummyWeeek }, selected);
+
+    expect(calls()).toEqual([...ALL_TOOLS]);
+    // The gate already logged when `selectTools` ran above; passing its result
+    // in must not produce a second round. This is the once-ness that keeps an
+    // operator from seeing every `tool gated by ...` line twice per boot.
+    expect(infoSpy.mock.calls).toHaveLength(0);
+    expect(warnSpy.mock.calls).toHaveLength(0);
+  });
+
+  it("registration order comes from the manifest, not from the selection order", () => {
+    // The loop walks the manifest and filters by name, so a caller cannot
+    // reorder the surface a client sees on `tools/list` by shuffling its
+    // argument.
+    const { server, calls } = makeMockServer();
+    registerAllTools(
+      server,
+      { config: makeEnvConfig(), weeek: dummyWeeek },
+      [
+        { name: "weeek_list_tags", readOnly: true },
+        { name: "ping", readOnly: true },
+        { name: "weeek_get_me", readOnly: true },
+      ],
+    );
+    expect(calls()).toEqual(["ping", "weeek_get_me", "weeek_list_tags"]);
+  });
+
+  it("a selection naming an unknown tool registers nothing for it (no throw)", () => {
+    const { server, calls } = makeMockServer();
+    registerAllTools(
+      server,
+      { config: makeEnvConfig(), weeek: dummyWeeek },
+      [
+        { name: "ping", readOnly: true },
+        { name: "weeek_does_not_exist", readOnly: true },
+      ],
+    );
+    expect(calls()).toEqual(["ping"]);
   });
 
   it("Array.includes-based allowlist tolerates duplicate entries silently", () => {

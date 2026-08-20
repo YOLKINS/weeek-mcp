@@ -19,8 +19,14 @@ import { tryLiveContext } from "./setup.js";
 // validation on the upstream payload). Failures here mean either:
 //   - the upstream API drifted (envelope key rename, field shape change)
 //   - our endpoint helpers grew a regression
-// Both are release-blockers — `live-smoke.yml` runs on `push: tags: ['v*']`
-// so a red live run blocks the publish.
+//
+// Both should stop a release — but nothing here MAKES them. This comment
+// used to claim that "`live-smoke.yml` runs on `push: tags: ['v*']` so a red
+// live run blocks the publish", and that is false in both halves (corrected
+// in 1.0.1): `live-smoke.yml` does fire on the tag, but `release.yml` is
+// `workflow_dispatch`-only and reads no result from it, so the two never
+// meet. The publish is gated on a human dispatching it. Read a red run here
+// as a reason not to dispatch, not as a gate that already held.
 //
 // Nine probes cover the full read surface: the original six
 // (`/user/me`, `/tm/projects`, `/tm/tasks`, `/tm/tasks/{id}`,
